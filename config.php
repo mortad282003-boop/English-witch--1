@@ -13,8 +13,10 @@ try {
     $conn = new PDO($dsn, $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 1. جدول طلبات الدفع مع إضافة عمود course_id المتوافق مع الاستعلام
-    $conn->exec("CREATE TABLE IF NOT EXISTS payment_requests (
+    // حذف الجدول القديم وإنشاؤه من جديد بالأعمدة الصحيحة كاملة
+    $conn->exec("DROP TABLE IF EXISTS payment_requests;");
+    
+    $conn->exec("CREATE TABLE payment_requests (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT DEFAULT NULL,
         course_id INT DEFAULT NULL,
