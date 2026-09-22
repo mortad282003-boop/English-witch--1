@@ -1,19 +1,17 @@
 <?php
-// جلب بيانات الاتصال من متغيرات البيئة في Railway
-$host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
-$user = getenv('MYSQLUSER') ?: 'root';
-$pass = getenv('MYSQLPASSWORD') ?: 'CoVSqEjqNkjsPSbVrqkVqVgdWdPsgzab';
-$db   = getenv('MYSQLDATABASE') ?: 'railway';
-$port = getenv('MYSQLPORT') ?: '3306';
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// الاتصال بقاعدة البيانات عبر MySQLi
+$host = 'mysql.railway.internal';
+$user = 'root';
+$pass = 'CoVSqEjqNkjsPSbVrqkVqVgdWdPsgzab';
+$db   = 'railway';
+$port = 3306;
+
 $conn = new mysqli($host, $user, $pass, $db, $port);
 
-// التحقق من صحة الاتصال
 if ($conn->connect_error) {
-    die("فشل الاتصال بقاعدة البيانات: " . $conn->connect_error);
+    die("فشل الاتصال: " . $conn->connect_error);
 }
-
-// ضبط الترميز ليدعم اللغة العربية بشكل كامل
 $conn->set_charset("utf8mb4");
 ?>
