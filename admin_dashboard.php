@@ -19,18 +19,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['approve_payment'])) {
     $email = $phone . "@englishwitch.com";
     $password = "123456";
     
-    $check_student = $conn->query("SELECT id FROM students WHERE phone = '$phone' OR email = '$email'");
-    if ($check_student && $check_student->num_rows > 0) {
-        $student_id = $check_student->fetch_assoc()['id'];
+    $stmt_check = $conn->prepare("SELECT id FROM students WHERE phone = ? OR email = ?");
+    $stmt_check->execute([$phone, $email]);
+    $student = $stmt_check->fetch(PDO::FETCH_ASSOC);
+
+    if ($student) {
+        $student_id = $student['id'];
     } else {
         $stmt = $conn->prepare("INSERT INTO students (name, email, phone, password, status) VALUES (?, ?, ?, ?, 'active')");
-        $stmt->bind_param("ssss", $student_name, $email, $phone, $password);
-        $stmt->execute();
-        $student_id = $conn->insert_id;
+        $stmt->execute([$student_name, $email, $phone, $password]);
+        $student_id = $conn->lastInsertId();
     }
     
-    $conn->query("INSERT INTO enrollments (student_id, course_id, payment_type) VALUES ($student_id, $course_id, 'كاش')");
-    $conn->query("UPDATE payment_requests SET status = 'approved' WHERE id = $req_id");
+    $stmt_enroll = $conn->prepare("INSERT INTO enrollments (student_id, course_id, payment_type) VALUES (?, ?, 'كاش')");
+    $stmt_enroll->execute([$student_id, $course_id]);
+
+    $stmt_update = $conn->prepare("UPDATE payment_requests SET status = 'approved' WHERE id = ?");
+    $stmt_update->execute([$req_id]);
+
     $msg = "<div style='background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px;'>✅ تم تفعيل حساب الطالب بنجاح!</div>";
 }
 
@@ -41,12 +47,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_course'])) {
     $icon = $_POST['icon'];
     
     $stmt = $conn->prepare("INSERT INTO courses (title, description, icon) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $title, $desc, $icon);
-    $stmt->execute();
+    $stmt->execute([$title, $desc, $icon]);
     $msg = "<div style='background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px;'>✅ تم إضافة الكورس بنجاح!</div>";
 }
 
-// 3. إضافة ملف تعليمي (PDF، صوتي، يوتيوب)
+// 3. إضافة ملف تعليمي
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_material'])) {
     $course_id = $_POST['course_id'];
     $title = $_POST['title'];
@@ -54,8 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_material'])) {
     $link = $_POST['material_link'];
     
     $stmt = $conn->prepare("INSERT INTO course_materials (course_id, title, material_type, material_link) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("isss", $course_id, $title, $type, $link);
-    $stmt->execute();
+    $stmt->execute([$course_id, $title, $type, $link]);
     $msg = "<div style='background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px;'>✅ تم رفع المادة التعليمية بنجاح!</div>";
 }
 
@@ -65,8 +69,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_exam_link'])) {
     $exam_title = $_POST['exam_title'];
     $exam_link = $_POST['exam_link'];
     
-    // التأكد من وجود جدول الامتحانات بالهيكل المناسب للروابط
-    $conn->query("CREATE TABLE IF NOT EXISTS exams (
+    $conn->exec("CREATE TABLE IF NOT EXISTS exams (
         id INT AUTO_INCREMENT PRIMARY KEY,
         course_id INT,
         exam_title VARCHAR(150),
@@ -75,8 +78,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_exam_link'])) {
     )");
     
     $stmt = $conn->prepare("INSERT INTO exams (course_id, exam_title, exam_link) VALUES (?, ?, ?)");
-    $stmt->bind_param("iss", $course_id, $exam_title, $exam_link);
-    $stmt->execute();
+    $stmt->execute([$course_id, $exam_title, $exam_link]);
     $msg = "<div style='background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px;'>✅ تم نشر رابط الاختبار بنجاح!</div>";
 }
 
@@ -84,25 +86,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_exam_link'])) {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['start_zoom'])) {
     $course_id = $_POST['course_id'];
     $zoom_link = $_POST['zoom_link'];
-    $conn->query("UPDATE live_sessions SET is_active = 0 WHERE course_id = $course_id");
+    $conn->exec("UPDATE live_sessions SET is_active = 0");
     $stmt = $conn->prepare("INSERT INTO live_sessions (course_id, zoom_link, is_active) VALUES (?, ?, 1)");
-    $stmt->bind_param("is", $course_id, $zoom_link);
-    $stmt->execute();
+    $stmt->execute([$course_id, $zoom_link]);
     $msg = "<div style='background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px;'>🔴 تم إطلاق بث الزوم!</div>";
 }
 if (isset($_POST['stop_zoom'])) {
-    $conn->query("UPDATE live_sessions SET is_active = 0");
+    $conn->exec("UPDATE live_sessions SET is_active = 0");
     $msg = "<div style='background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px;'>⏹️ تم إيقاف البث.</div>";
 }
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['toggle_ban'])) {
     $email = $_POST['student_email'];
     $status = $_POST['action_type'];
-    $conn->query("UPDATE students SET status = '$status' WHERE email = '$email'");
+    $stmt = $conn->prepare("UPDATE students SET status = ? WHERE email = ?");
+    $stmt->execute([$status, $email]);
     $msg = "<div style='background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px;'>✅ تم تحديث حالة الطالب.</div>";
 }
 
-$pending_requests = $conn->query("SELECT pr.*, c.title as course_title FROM payment_requests pr LEFT JOIN courses c ON pr.course_id = c.id WHERE pr.status = 'pending'");
-$all_courses = $conn->query("SELECT * FROM courses");
+$pending_requests = $conn->query("SELECT pr.*, c.title as course_title FROM payment_requests pr LEFT JOIN courses c ON pr.course_id = c.id WHERE pr.status = 'pending'")->fetchAll(PDO::FETCH_ASSOC);
+$all_courses = $conn->query("SELECT * FROM courses")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -203,15 +205,15 @@ $all_courses = $conn->query("SELECT * FROM courses");
                         </thead>
                         <tbody>
                             <?php 
-                            if ($pending_requests && $pending_requests->num_rows > 0) {
-                                while ($req = $pending_requests->fetch_assoc()) {
-                                    $whatsapp_msg = urlencode("مرحباً " . $req['student_name'] . "، تم قبول إيصال الدفع وتفعيل حسابك في منصة English Witch.\nرابط الدخول: http://localhost:8080/login.php\nالإيميل: " . $req['phone'] . "@englishwitch.com\nكلمة المرور: 123456");
+                            if (!empty($pending_requests)) {
+                                foreach ($pending_requests as $req) {
+                                    $whatsapp_msg = urlencode("مرحباً " . $req['student_name'] . "، تم قبول إيصال الدفع وتفعيل حسابك في منصة English Witch.\nرابط الدخول: https://english-witch-production.up.railway.app/login.php\nالإيميل: " . $req['phone'] . "@englishwitch.com\nكلمة المرور: 123456");
                                     
                                     echo "<tr>";
                                     echo "<td>" . htmlspecialchars($req['student_name']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($req['course_title']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($req['course_title'] ?? 'غير محدد') . "</td>";
                                     echo "<td>" . htmlspecialchars($req['phone']) . "</td>";
-                                    echo "<td><a href='" . htmlspecialchars($req['receipt_image']) . "' target='_blank' class='btn btn-blue'>الإيصال 🖼️</a></td>";
+                                    echo "<td><a href='" . htmlspecialchars($req['receipt_image'] ?? '#') . "' target='_blank' class='btn btn-blue'>الإيصال 🖼️</a></td>";
                                     echo "<td>
                                             <div style='display: flex; gap: 5px; align-items: center;'>
                                                 <form method='POST' style='margin:0;'>
@@ -265,9 +267,8 @@ $all_courses = $conn->query("SELECT * FROM courses");
                     <label>اختر الكورس:</label>
                     <select name="course_id" required>
                         <?php 
-                        if ($all_courses) {
-                            $all_courses->data_seek(0);
-                            while($c = $all_courses->fetch_assoc()) {
+                        if (!empty($all_courses)) {
+                            foreach($all_courses as $c) {
                                 echo "<option value='{$c['id']}'>{$c['title']}</option>";
                             }
                         }
@@ -296,9 +297,8 @@ $all_courses = $conn->query("SELECT * FROM courses");
                     <label>اختر الكورس المرتبط:</label>
                     <select name="course_id" required>
                         <?php 
-                        if ($all_courses) {
-                            $all_courses->data_seek(0);
-                            while($c = $all_courses->fetch_assoc()) {
+                        if (!empty($all_courses)) {
+                            foreach($all_courses as $c) {
                                 echo "<option value='{$c['id']}'>{$c['title']}</option>";
                             }
                         }
@@ -323,9 +323,8 @@ $all_courses = $conn->query("SELECT * FROM courses");
                     <label>اختر الكورس:</label>
                     <select name="course_id" required>
                         <?php 
-                        if ($all_courses) {
-                            $all_courses->data_seek(0);
-                            while($c = $all_courses->fetch_assoc()) {
+                        if (!empty($all_courses)) {
+                            foreach($all_courses as $c) {
                                 echo "<option value='{$c['id']}'>{$c['title']}</option>";
                             }
                         }
