@@ -1,19 +1,19 @@
 <?php
-// إعدادات الاتصال بقاعدة البيانات (تدعم المحلي والسحابي أوتوماتيك)
-$host = getenv('MYSQLHOST') ?: 'localhost';
+// جلب بيانات الاتصال من متغيرات البيئة في Railway
+$host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
 $user = getenv('MYSQLUSER') ?: 'root';
-$pass = getenv('MYSQLPASSWORD') ?: '';
-$db   = getenv('MYSQLDATABASE') ?: 'english_witch_db';
+$pass = getenv('MYSQLPASSWORD') ?: 'CoVSqEjqNkjsPSbVrqkVqVgdWdPsgzab';
+$db   = getenv('MYSQLDATABASE') ?: 'railway';
 $port = getenv('MYSQLPORT') ?: '3306';
 
-// إنشاء الاتصال باستخدام MySQLi
+// الاتصال بقاعدة البيانات عبر MySQLi
 $conn = new mysqli($host, $user, $pass, $db, $port);
 
-// التحقق من سلامة الاتصال
+// التحقق من صحة الاتصال
 if ($conn->connect_error) {
-    die("<div style='font-family: Tahoma; text-align: center; margin-top: 50px; color: #e51b23;'><h3>❌ فشل الاتصال بقاعدة البيانات:</h3><p>" . $conn->connect_error . "</p></div>");
+    die("فشل الاتصال بقاعدة البيانات: " . $conn->connect_error);
 }
 
-// ضبط الترميز لضمان دعم اللغة العربية بشكل كامل وبدون رموز
+// ضبط الترميز ليدعم اللغة العربية بشكل كامل
 $conn->set_charset("utf8mb4");
 ?>
