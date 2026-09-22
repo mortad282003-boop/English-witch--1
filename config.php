@@ -13,10 +13,11 @@ try {
     $conn = new PDO($dsn, $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 1. جدول طلبات الدفع
+    // 1. جدول طلبات الدفع مع إضافة عمود course_id المتوافق مع الاستعلام
     $conn->exec("CREATE TABLE IF NOT EXISTS payment_requests (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT DEFAULT NULL,
+        course_id INT DEFAULT NULL,
         amount DECIMAL(10,2) DEFAULT NULL,
         status VARCHAR(50) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
